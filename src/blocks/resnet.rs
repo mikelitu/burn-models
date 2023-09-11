@@ -27,13 +27,17 @@ pub struct ResNetConfig {
     init_kernel: [usize; 2],
     #[config(default="[3, 32]")]
     in_channels: [usize; 2],
-    blocks: Vec<usize>
+    blocks: Vec<usize>,
+    #[config(default="[128, 128]")]
+    input_size: [usize; 2],
 }
 
 impl ResNetConfig {
 
     pub fn init<B: Backend>(&self, layers: Vec<usize>) -> ResNet<B> {
-        let linear_input = layers[layers.len()-1] * 7 * 7;
+        let reduced_shape: [usize; 2] = self.input_size.map(|x| x / (2_usize.pow(self.blocks.len() as u32)) - 1);
+        println!("The reduces shape of the tensor is {:?}", reduced_shape);
+        let linear_input = layers[layers.len()-1] * reduced_shape[0] * reduced_shape[1];
         let mut res_blocks = Vec::new();
         let mut reducing_conv = Vec::new();
         let llen = layers.len() - 1;
@@ -60,11 +64,13 @@ impl ResNetConfig {
             classification: LinearConfig::new(linear_input, self.num_classes).init()}
     }
 
-    pub fn init_with<B:Backend>(&self, record: ResNetRecord<B>, layers: Vec<usize>, blocks: Vec<usize>) -> ResNet<B> {
-        let linear_input = layers[layers.len()] * 7 * 7;
+    pub fn init_with<B:Backend>(&self, record: ResNetRecord<B>, layers: Vec<usize>) -> ResNet<B> {
+        let reduced_shape: [usize; 2] = self.input_size.map(|x| x / (2_usize.pow(self.blocks.len() as u32)) - 1);
+        
+        let linear_input = layers[layers.len() - 1] * reduced_shape[0] * reduced_shape[1];
         let mut res_blocks = Vec::new();
         let mut reducing_conv = Vec::new();
-        for (idx, (l, b)) in layers.clone().into_iter().zip(blocks).enumerate() {
+        for (idx, (l, b)) in layers.clone().into_iter().zip(self.blocks.clone()).enumerate() {
             res_blocks.push(
                 ResBlockConfig::new(l, [3, 3]).init_with(b, record.res_blocks[idx].clone())
             );
@@ -98,7 +104,6 @@ impl<B: Backend> ResNet<B> {
 
         let iter = self.res_blocks.clone().into_iter().zip(self.reducing_conv.clone());
         for (b, r) in iter {
-            println!("The shape of the tensor is {:?}", input.dims());
             input = r.forward(b.forward(input));
         }
         let input = input.reshape([batch_size, 256 * 7 * 7]);
