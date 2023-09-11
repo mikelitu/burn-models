@@ -28,15 +28,14 @@ pub struct ResNetConfig {
     #[config(default="[3, 32]")]
     in_channels: [usize; 2],
     blocks: Vec<usize>,
-    #[config(default="[128, 128]")]
-    input_size: [usize; 2],
+    #[config(default="[64, 64]")]
+    pool_size: [usize; 2],
 }
 
 impl ResNetConfig {
 
     pub fn init<B: Backend>(&self, layers: Vec<usize>) -> ResNet<B> {
-        let reduced_shape: [usize; 2] = self.input_size.map(|x| x / (2_usize.pow(self.blocks.len() as u32)) - 1);
-        println!("The reduces shape of the tensor is {:?}", reduced_shape);
+        let reduced_shape: [usize; 2] = self.pool_size.map(|x| x / (2_usize.pow(self.blocks.len() as u32 - 1)) - 1);
         let linear_input = layers[layers.len()-1] * reduced_shape[0] * reduced_shape[1];
         let mut res_blocks = Vec::new();
         let mut reducing_conv = Vec::new();
@@ -58,14 +57,14 @@ impl ResNetConfig {
 
         ResNet { 
             conv: Conv2dConfig::new(self.in_channels, self.init_kernel).init(),
-            pool: AdaptiveAvgPool2dConfig::new([64, 64]).init(),
+            pool: AdaptiveAvgPool2dConfig::new(self.pool_size).init(),
             res_blocks,
             reducing_conv,
             classification: LinearConfig::new(linear_input, self.num_classes).init()}
     }
 
     pub fn init_with<B:Backend>(&self, record: ResNetRecord<B>, layers: Vec<usize>) -> ResNet<B> {
-        let reduced_shape: [usize; 2] = self.input_size.map(|x| x / (2_usize.pow(self.blocks.len() as u32)) - 1);
+        let reduced_shape: [usize; 2] = self.pool_size.map(|x| x / (2_usize.pow(self.blocks.len() as u32 - 1)) - 1);
         
         let linear_input = layers[layers.len() - 1] * reduced_shape[0] * reduced_shape[1];
         let mut res_blocks = Vec::new();
@@ -87,7 +86,7 @@ impl ResNetConfig {
         
         ResNet { 
             conv: Conv2dConfig::new(self.in_channels, self.init_kernel).init_with(record.conv),
-            pool: AdaptiveAvgPool2dConfig::new([128, 128]).init(),
+            pool: AdaptiveAvgPool2dConfig::new(self.pool_size).init(),
             res_blocks,
             reducing_conv,
             classification: LinearConfig::new(linear_input, self.num_classes).init_with(record.classification)

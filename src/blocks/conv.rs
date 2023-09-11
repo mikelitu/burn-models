@@ -8,6 +8,7 @@ use burn::{
     tensor::{backend::Backend, Tensor}, 
 };
 
+
 #[derive(Module, Debug)]
 pub struct ConvBlock<B: Backend> {
     conv: Conv2d<B>,
@@ -48,3 +49,4 @@ impl<B: Backend> ConvBlock<B> {
         self.activation.forward(x)
     }
 }
+
