@@ -45,7 +45,7 @@ impl<B: Backend> ResBlock<B> {
     pub fn forward(&self, mut x: Tensor<B, 4>) -> Tensor<B, 4> {
         
         let input = x.clone();
-        for block in self.blocks.clone().into_iter() {
+        for block in &self.blocks {
             x = block.forward(x);
         }
         input + x

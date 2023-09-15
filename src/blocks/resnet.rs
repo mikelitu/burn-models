@@ -41,13 +41,13 @@ impl ResNetConfig {
         let mut reducing_conv = Vec::new();
         let llen = layers.len() - 1;
 
-        for (idx, (l, b)) in layers.clone().into_iter().zip(self.blocks.clone()).enumerate() {
+        for (idx, (l, b)) in layers.iter().zip(&self.blocks).enumerate() {
             res_blocks.push(
-                ResBlockConfig::new(l, [3, 3]).init(b)
+                ResBlockConfig::new(*l, [3, 3]).init(*b)
             );
             if idx < llen {
                 reducing_conv.push(
-                    Conv2dConfig::new([l, layers[idx+1]], [3, 3])
+                    Conv2dConfig::new([*l, layers[idx+1]], [3, 3])
                     .with_stride([2, 2])
                     .init()
                 )
@@ -69,13 +69,13 @@ impl ResNetConfig {
         let linear_input = layers[layers.len() - 1] * reduced_shape[0] * reduced_shape[1];
         let mut res_blocks = Vec::new();
         let mut reducing_conv = Vec::new();
-        for (idx, (l, b)) in layers.clone().into_iter().zip(self.blocks.clone()).enumerate() {
+        for (idx, (l, b)) in layers.iter().zip(&self.blocks).enumerate() {
             res_blocks.push(
-                ResBlockConfig::new(l, [3, 3]).init_with(b, record.res_blocks[idx].clone())
+                ResBlockConfig::new(*l, [3, 3]).init_with(*b, record.res_blocks[idx].clone())
             );
             if idx < layers.len() {
                 reducing_conv.push(
-                    Conv2dConfig::new([l, layers[idx+1]], [3, 3])
+                    Conv2dConfig::new([*l, layers[idx+1]], [3, 3])
                     .with_stride([2, 2])
                     .with_padding(burn::nn::PaddingConfig2d::Same)
                     .init_with(record.reducing_conv[idx].clone())
@@ -91,6 +91,7 @@ impl ResNetConfig {
             reducing_conv,
             classification: LinearConfig::new(linear_input, self.num_classes).init_with(record.classification)
         }
+
     }
 }
 
@@ -101,10 +102,11 @@ impl<B: Backend> ResNet<B> {
         input = self.conv.forward(input);
         input = self.pool.forward(input);
 
-        let iter = self.res_blocks.clone().into_iter().zip(self.reducing_conv.clone());
-        for (b, r) in iter {
+
+        for (b, r) in self.res_blocks.iter().zip(&self.reducing_conv) {
             input = r.forward(b.forward(input));
         }
+
         let input = input.reshape([batch_size, 256 * 7 * 7]);
         self.classification.forward(input)
     }
